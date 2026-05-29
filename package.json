@@ -1,0 +1,39 @@
+{
+  "name": "pawpause",
+  "version": "0.1.0",
+  "description": "Detect and suppress cat-on-keyboard input in any text field. Framework-agnostic core + DOM guard + React hook.",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "import": "./dist/react.js",
+      "require": "./dist/react.cjs"
+    }
+  },
+  "files": ["dist", "README.md"],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup src/index.ts src/react.tsx --format esm,cjs --dts --clean",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": ["cat", "keyboard", "input", "suppress", "detection", "ux", "slack", "react"],
+  "peerDependencies": {
+    "react": ">=17"
+  },
+  "peerDependenciesMeta": {
+    "react": { "optional": true }
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.4.0"
+  },
+  "license": "MIT"
+}
