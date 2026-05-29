@@ -4,9 +4,6 @@ Detect when a cat is walking on the keyboard and suppress the input — before i
 posts gibberish to your Slack channel, fires a destructive shortcut, or mangles
 a draft. Smart by design: humans keep typing normally; cats get clamped.
 
-```bash
-npm install pawpause
-```
 
 - **Framework-agnostic core** — pure scoring engine, no DOM, fully testable.
 - **DOM guard** — attach to any `<input>`, `<textarea>`, or `contenteditable`.
