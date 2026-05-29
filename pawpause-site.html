@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Paw Pause — detect &amp; suppress cat-on-keyboard input</title>
+<meta name="description" content="Paw Pause detects when a cat walks on the keyboard and suppresses the input before it posts gibberish, fires a shortcut, or mangles a draft. Framework-agnostic core + DOM guard + React hook." />
+<meta property="og:title" content="Paw Pause" />
+<meta property="og:description" content="Detect & suppress cat-on-keyboard input in any text field." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#16140f; --panel:#1c190f; --panel2:#161309; --line:#2d281d; --line2:#221d13;
+    --ink:#e8e1d2; --ink2:#cabfa8; --mut:#7a7263; --mut2:#5c554a;
+    --amber:#e8a33d; --amber-d:#c97a1f; --red:#ff5c47; --green:#9fd8a8;
+    --mono:'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --disp:'Syne', ui-sans-serif, system-ui, sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--bg); color:var(--ink); font-family:var(--mono); font-size:15px; line-height:1.6;
+    background-image:radial-gradient(1100px 500px at 85% -8%, rgba(232,163,61,.08), transparent), radial-gradient(800px 400px at 5% 10%, rgba(74,124,138,.06), transparent);
+  }
+  a{color:inherit}
+  .wrap{max-width:960px; margin:0 auto; padding:0 22px}
+  code{font-family:var(--mono); color:#caa15f}
+
+  /* nav */
+  nav{position:sticky; top:0; z-index:50; backdrop-filter:blur(8px); background:rgba(22,20,15,.8); border-bottom:1px solid var(--line)}
+  .nav{display:flex; align-items:center; justify-content:space-between; padding:14px 22px; max-width:960px; margin:0 auto}
+  .brand{display:flex; align-items:center; gap:10px; font-family:var(--disp); font-weight:800; letter-spacing:1px; font-size:18px; color:#f3e9d6}
+  .brand .paw{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:#211d15;border:1px solid #3a3326;color:var(--amber)}
+  .nav-links{display:flex; align-items:center; gap:20px; font-size:13px; color:var(--mut)}
+  .nav-links a{text-decoration:none}
+  .nav-links a:hover{color:var(--amber)}
+  .btn{display:inline-flex; align-items:center; gap:8px; cursor:pointer; text-decoration:none; font-family:var(--mono); font-weight:600; font-size:13px; padding:9px 16px; border-radius:9px; border:1px solid var(--line); color:var(--ink); background:var(--panel); transition:.15s}
+  .btn:hover{border-color:#5c4a2a}
+  .btn.amber{background:var(--amber); color:#1a120f; border:none}
+  .btn.amber:hover{background:#f0b255}
+
+  /* hero */
+  header.hero{padding:74px 0 34px; text-align:center}
+  .tag{display:inline-block; font-size:11px; letter-spacing:2px; color:var(--amber); border:1px solid #4a3a1c; border-radius:999px; padding:5px 13px; margin-bottom:22px}
+  h1{font-family:var(--disp); font-weight:800; font-size:clamp(34px,6vw,58px); line-height:1.04; margin:0 0 16px; color:#f6efe0; letter-spacing:.5px}
+  h1 .hl{color:var(--amber)}
+  .sub{max-width:620px; margin:0 auto 28px; color:var(--ink2); font-size:17px}
+  .cta{display:flex; gap:12px; justify-content:center; flex-wrap:wrap}
+  .npm{display:inline-flex; align-items:center; gap:10px; font-family:var(--mono); font-size:13px; color:var(--ink2); background:var(--panel2); border:1px solid var(--line); border-radius:9px; padding:9px 14px}
+  .npm button{cursor:pointer; background:none; border:none; color:var(--mut); font-family:var(--mono); font-size:12px}
+  .npm button:hover{color:var(--amber)}
+
+  /* sections */
+  section{padding:38px 0}
+  .eyebrow{font-size:11px; letter-spacing:2.5px; color:var(--mut); font-weight:600; margin-bottom:8px}
+  h2{font-family:var(--disp); font-weight:700; font-size:26px; margin:0 0 18px; color:#f3e9d6}
+
+  /* demo */
+  .demo{background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:18px}
+  .tabs{display:inline-flex; gap:6px; background:var(--panel2); padding:4px; border-radius:10px; border:1px solid var(--line); margin-bottom:16px}
+  .tab{display:flex; align-items:center; gap:6px; font-family:var(--mono); font-size:12px; font-weight:600; padding:7px 14px; border-radius:7px; cursor:pointer; background:none; border:none; color:var(--mut)}
+  .tab.on{background:#241d10; color:var(--amber)}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:14px}
+  @media(max-width:720px){.grid2{grid-template-columns:1fr}}
+  .panel{background:var(--panel2); border:1px solid var(--line); border-radius:12px; padding:16px}
+  .plabel{font-size:11px; letter-spacing:2px; color:#8a8270; font-weight:600}
+  .phead{display:flex; justify-content:space-between; align-items:center; margin-bottom:12px}
+  textarea{width:100%; height:190px; resize:none; background:#121009; border:1px solid var(--line); border-radius:10px; padding:14px; color:#f3e9d6; font-family:var(--mono); font-size:14px; line-height:1.6; outline:none}
+  textarea.locked{border-color:#5c2620}
+  .field-wrap{position:relative}
+  .clamp{position:absolute; inset:0; border-radius:10px; background:rgba(20,18,14,.88); display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--red); text-align:center; gap:6px}
+  .clamp.hidden{display:none}
+  .clamp .sub{font-size:11px; color:#b8a98f}
+  .clamp button{margin-top:10px; cursor:pointer; background:var(--red); color:#1a120f; border:none; border-radius:8px; padding:7px 14px; font-weight:700; font-family:var(--mono); font-size:12px}
+  .controls{display:flex; gap:10px; margin-top:12px; flex-wrap:wrap; align-items:center}
+  .pill{display:inline-flex; align-items:center; gap:6px; cursor:pointer; font-family:var(--mono); font-size:12px; font-weight:600; padding:8px 13px; border-radius:8px; border:none; background:var(--amber); color:#1a120f}
+  .pill.ghost{background:transparent; border:1px solid var(--line); color:var(--ink2); font-weight:400}
+  .lock-t{display:flex; align-items:center; gap:6px; font-size:11px; color:#8a8270; margin-left:auto; cursor:pointer}
+
+  .gauge-num{font-family:var(--mono); font-weight:700; font-size:34px; line-height:1; text-align:center}
+  .gauge-sub{font-size:10px; letter-spacing:1.5px; color:var(--mut); text-align:center; margin-top:4px}
+  .sigs{display:flex; flex-direction:column; gap:9px; margin-top:14px}
+  .sig .top{display:flex; justify-content:space-between; align-items:baseline}
+  .sig .nm{font-size:12px; color:var(--mut)} .sig.on .nm{color:#f3e9d6}
+  .sig .w{font-size:11px; color:var(--mut2)} .sig.on .w{color:var(--amber)}
+  .track{height:5px; background:#252012; border-radius:3px; overflow:hidden; margin-top:3px}
+  .fill{height:100%; width:0; border-radius:3px; transition:width .18s ease}
+  .sig.on .fill{width:100%; background:linear-gradient(90deg,var(--amber-d),var(--amber)); box-shadow:0 0 10px rgba(232,163,61,.5)}
+  .hint{font-size:9.5px; color:var(--mut2)}
+  .thr{display:flex; align-items:center; gap:10px; margin:6px 0 2px}
+  .thr label{font-size:10px; color:var(--mut); letter-spacing:1px; white-space:nowrap}
+  .thr input{flex:1; accent-color:var(--amber)}
+  .thr .v{font-size:12px; color:var(--amber); font-weight:600; width:24px; text-align:right}
+
+  /* slack composer */
+  .slack{background:var(--panel2); border:1px solid var(--line); border-radius:12px; overflow:hidden; max-width:560px; margin:0 auto}
+  .slack-head{display:flex; align-items:center; gap:7px; padding:13px 16px; border-bottom:1px solid var(--line); font-family:var(--disp); font-weight:700; color:#f3e9d6}
+  .slack-head .m{font-family:var(--mono); font-size:11px; font-weight:400; color:var(--mut2)}
+  .msgs{padding:14px 16px; display:flex; flex-direction:column; gap:12px; min-height:80px}
+  .msg{display:flex; gap:10px}
+  .av{width:34px; height:34px; border-radius:8px; display:grid; place-items:center; color:#16140f; font-weight:700; font-family:var(--disp); flex-shrink:0}
+  .who{font-size:13px; font-weight:700; color:#f3e9d6}
+  .mtext{font-size:14px; color:var(--ink2)}
+  .banner{margin:0 16px; padding:9px 12px; background:#241512; border:1px solid #5c2620; border-radius:8px; color:#ffb3a3; font-size:12.5px; display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+  .banner.hidden{display:none}
+  .banner button{margin-left:auto; cursor:pointer; background:var(--red); color:#1a120f; border:none; border-radius:6px; padding:4px 10px; font-weight:700; font-family:var(--mono); font-size:11px}
+  .composer{margin:16px; border:1px solid var(--line); border-radius:10px; background:#121009}
+  .composer.locked{border-color:#5c2620}
+  .composer textarea{border:none; min-height:54px; height:54px; background:transparent}
+  .cbar{display:flex; align-items:center; justify-content:space-between; padding:8px 12px; border-top:1px solid var(--line2)}
+
+  /* table */
+  table{width:100%; border-collapse:collapse; font-size:14px}
+  th,td{text-align:left; padding:11px 12px; border-bottom:1px solid var(--line2)}
+  th{font-size:11px; letter-spacing:1.5px; color:var(--mut); font-weight:600}
+  td .s{color:#f3e9d6} td .wt{color:var(--amber); font-family:var(--mono)}
+
+  /* code */
+  pre{background:var(--panel2); border:1px solid var(--line); border-radius:12px; padding:16px; overflow:auto; font-size:13px; line-height:1.6; color:var(--green); margin:0}
+  .code-grid{display:grid; grid-template-columns:1fr 1fr; gap:14px}
+  @media(max-width:720px){.code-grid{grid-template-columns:1fr}}
+  .code-grid h3{font-size:12px; letter-spacing:1.5px; color:var(--mut); font-weight:600; margin:0 0 8px}
+
+  /* github */
+  .gh{background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:26px; text-align:center}
+  .gh ul{list-style:none; padding:0; margin:18px auto; max-width:560px; display:grid; grid-template-columns:1fr 1fr; gap:8px; text-align:left}
+  @media(max-width:560px){.gh ul{grid-template-columns:1fr}}
+  .gh li{font-size:13px; color:var(--ink2); padding:8px 12px; background:var(--panel2); border:1px solid var(--line2); border-radius:8px}
+  .gh li b{color:#f3e9d6; font-weight:600}
+
+  footer{border-top:1px solid var(--line); padding:28px 0 50px; color:var(--mut2); font-size:12px}
+  .foot{display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px}
+  .foot a{color:var(--mut); text-decoration:none}
+  .foot a:hover{color:var(--amber)}
+  .note{font-size:11px; color:var(--mut2); margin-top:10px}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav">
+    <div class="brand"><span class="paw">🐾</span> PAW PAUSE</div>
+    <div class="nav-links">
+      <a href="#demo">Demo</a>
+      <a href="#how">How it works</a>
+      <a href="#install">Install</a>
+      <a id="gh-nav" class="btn" href="#" target="_blank" rel="noopener">GitHub ↗</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="tag">OPEN SOURCE · MIT</span>
+    <h1>Stop your cat from <span class="hl">typing</span> in your app.</h1>
+    <p class="sub">Paw Pause detects when a cat walks on the keyboard and suppresses the input — before it
+      posts gibberish to a channel, fires a destructive shortcut, or mangles a draft. Humans keep typing
+      normally; cats get clamped.</p>
+    <div class="cta">
+      <a id="gh-hero" class="btn amber" href="#" target="_blank" rel="noopener">★ Get it on GitHub</a>
+      <span class="npm"><code>npm i pawpause</code><button onclick="copyNpm(this)">copy</button></span>
+    </div>
+    <p class="note">~3&nbsp;kB · zero dependencies · framework-agnostic core + DOM guard + React hook</p>
+  </div>
+</header>
+
+<section id="demo">
+  <div class="wrap">
+    <div class="eyebrow">LIVE PREVIEW</div>
+    <h2>Try it in the browser</h2>
+    <div class="demo">
+      <div class="tabs">
+        <button class="tab on" data-tab="instrument" onclick="switchTab('instrument')">📊 Instrument</button>
+        <button class="tab" data-tab="composer" onclick="switchTab('composer')">🧩 Composer</button>
+      </div>
+
+      <!-- INSTRUMENT -->
+      <div id="t-instrument">
+        <div class="grid2">
+          <div class="panel">
+            <div class="phead"><span class="plabel">INPUT CHANNEL</span><span id="charcount" class="plabel">0 chars</span></div>
+            <div class="field-wrap">
+              <textarea id="ta" placeholder="Type here. Mash adjacent keys to simulate a cat. (Esc overrides)" spellcheck="false"></textarea>
+              <div id="clamp" class="clamp hidden">
+                <div style="font-size:26px">🐾</div>
+                <div style="font-weight:700; letter-spacing:1px">INPUT CLAMPED</div>
+                <div class="sub" id="clampsub">Auto-releases when typing settles.</div>
+                <button onclick="releaseInstrument()">Release (Esc)</button>
+              </div>
+            </div>
+            <div class="controls">
+              <button class="pill" onclick="simulate('instrument')">⚡ Simulate cat</button>
+              <button class="pill ghost" onclick="clearInstrument()">Clear</button>
+              <label class="lock-t"><input type="checkbox" id="stayLocked" style="accent-color:var(--amber)" /> stay locked</label>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="phead"><span class="plabel">DETECTION</span><span id="verdict" class="plabel">CLEAR</span></div>
+            <div id="gaugeNum" class="gauge-num" style="color:var(--amber)">0.00</div>
+            <div class="gauge-sub">/ <span id="thrLabel">1.0</span> TRIGGER</div>
+            <div class="thr"><label>threshold</label><input type="range" id="thr" min="0.4" max="2" step="0.1" value="1.0" /><span class="v" id="thrV">1.0</span></div>
+            <div class="sigs" id="sigs"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- COMPOSER -->
+      <div id="t-composer" style="display:none">
+        <div class="slack">
+          <div class="slack-head"># general <span class="m">· guarded by pawpause</span></div>
+          <div class="msgs" id="msgs">
+            <div class="msg"><div class="av" style="background:#4a7c8a">M</div><div><div class="who">Mara</div><div class="mtext">did the deploy finish?</div></div></div>
+          </div>
+          <div id="cbanner" class="banner hidden">🐾 Paw Pause held <span id="heldN">0</span> characters from your cat. <button onclick="releaseComposer()">I'm human</button></div>
+          <div class="composer" id="composerBox">
+            <textarea id="cta" placeholder="Message #general" spellcheck="false"></textarea>
+            <div class="cbar">
+              <button class="pill ghost" onclick="simulate('composer')">⚡ Simulate cat</button>
+              <button class="pill" id="sendBtn" onclick="sendMsg()">➤ Send</button>
+            </div>
+          </div>
+        </div>
+        <p class="note" style="text-align:center">Controlled input: the guard suppresses keystrokes, hands back a <code>safeValue</code> to roll back the cat's text, and Send is gated while clamped.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="how">
+  <div class="wrap">
+    <div class="eyebrow">THE MODEL</div>
+    <h2>How detection works</h2>
+    <p style="color:var(--ink2); max-width:680px">Every keystroke updates a rolling ~1.5&nbsp;second window. Six interpretable
+      signals sum into a score; cross the threshold and input is suppressed. A human trips maybe one signal incidentally;
+      a paw-flop trips several at once. No machine learning, no keystroke logging — only physical key <em>codes</em> are
+      inspected, never the characters typed.</p>
+    <table>
+      <thead><tr><th>SIGNAL</th><th>FIRES WHEN</th><th>WEIGHT</th></tr></thead>
+      <tbody>
+        <tr><td class="s">Concurrent keys</td><td>3+ keys physically held at once</td><td class="wt">0.7</td></tr>
+        <tr><td class="s">Heavy press</td><td>5+ keys held — sitting on it</td><td class="wt">0.7</td></tr>
+        <tr><td class="s">Burst rate</td><td>8+ keys / second</td><td class="wt">0.4</td></tr>
+        <tr><td class="s">Adjacency roll</td><td>3+ consecutive neighboring keys</td><td class="wt">0.4</td></tr>
+        <tr><td class="s">Repetition</td><td>same key 6+ times</td><td class="wt">0.3</td></tr>
+        <tr><td class="s">No structure</td><td>6+ keys, no space / return / delete</td><td class="wt">0.2</td></tr>
+      </tbody>
+    </table>
+    <p class="note">Default trigger threshold: 1.0. Every weight and threshold is configurable. A false positive never traps
+      a real user — auto-release is the default and Escape always unlocks.</p>
+  </div>
+</section>
+
+<section id="install">
+  <div class="wrap">
+    <div class="eyebrow">QUICKSTART</div>
+    <h2>Drop it into any text field</h2>
+    <div class="code-grid">
+      <div>
+        <h3>VANILLA — UNCONTROLLED</h3>
+<pre>import { attachGuard } from "pawpause";
+
+const el = document.querySelector("#composer");
+const guard = attachGuard(el, {
+  onClamp: (i) =&gt; toast("Held cat input"),
+  onRelease: () =&gt; toast("All clear"),
+});
+// guard.disarm(); guard.destroy();</pre>
+      </div>
+      <div>
+        <h3>REACT — CONTROLLED (SLACK-STYLE)</h3>
+<pre>import { usePawPause } from "pawpause/react";
+
+const { ref, blocking, lastClamp } =
+  usePawPause({ rollback: false });
+
+useEffect(() =&gt; {
+  if (lastClamp) setValue(lastClamp.safeValue);
+}, [lastClamp]);
+
+&lt;textarea ref={ref} value={value} ... /&gt;
+&lt;button disabled={blocking}&gt;Send&lt;/button&gt;</pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="get">
+  <div class="wrap">
+    <div class="gh">
+      <div class="eyebrow">GET THE LIBRARY</div>
+      <h2 style="margin-bottom:6px">It all lives on GitHub</h2>
+      <p style="color:var(--ink2); max-width:560px; margin:0 auto">Source, docs, and releases are on GitHub. Clone it, star it,
+        open issues, or grab a release tarball — downloads happen there, not here.</p>
+      <ul>
+        <li><b>src/core.ts</b> — pure scoreWindow + Detector</li>
+        <li><b>src/guard.ts</b> — DOM binding, suppress/rollback</li>
+        <li><b>src/react.tsx</b> — usePawPause() hook</li>
+        <li><b>src/keyboard.ts</b> — adjacency map</li>
+        <li><b>README · ARCHITECTURE · INTEGRATION</b> — full docs</li>
+        <li><b>examples/</b> — vanilla + Slack composer</li>
+      </ul>
+      <div class="cta">
+        <a id="gh-get" class="btn amber" href="#" target="_blank" rel="noopener">★ View repository</a>
+        <a id="gh-rel" class="btn" href="#" target="_blank" rel="noopener">Download a release ↗</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot">
+    <div>🐾 Paw Pause — MIT licensed. Built for people with cats. By <a href="http://milaad.net/"> Milad Safarzadeh</a></div>
+    <div>
+      <a id="gh-foot" href="#" target="_blank" rel="noopener">GitHub</a> ·
+      <a href="https://www.npmjs.com/package/pawpause" target="_blank" rel="noopener">npm</a> ·
+      <a href="#demo">Demo</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+// ===== EDIT THIS: point at your GitHub repo =====
+const GH = "https://github.com/miladsafarzadeh1/pawpause";
+// =================================================
+["gh-nav","gh-hero","gh-get","gh-foot"].forEach(id=>{ const e=document.getElementById(id); if(e) e.href=GH; });
+document.getElementById("gh-rel").href = GH + "/releases";
+
+function copyNpm(btn){ navigator.clipboard?.writeText("npm i pawpause"); const t=btn.textContent; btn.textContent="copied"; setTimeout(()=>btn.textContent=t,1200); }
+function switchTab(name){
+  document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("on", t.dataset.tab===name));
+  document.getElementById("t-instrument").style.display = name==="instrument"?"":"none";
+  document.getElementById("t-composer").style.display = name==="composer"?"":"none";
+}
+
+// ---- Detection model (mirrors pawpause/core) ----
+const WINDOW=1500, RELEASE=1000, SAFE_WM=0.3;
+const ROWS=[["KeyQ","KeyW","KeyE","KeyR","KeyT","KeyY","KeyU","KeyI","KeyO","KeyP"],["KeyA","KeyS","KeyD","KeyF","KeyG","KeyH","KeyJ","KeyK","KeyL"],["KeyZ","KeyX","KeyC","KeyV","KeyB","KeyN","KeyM","Comma","Period"]];
+const STRUCT=new Set(["Space","Enter","Backspace","Tab","NumpadEnter"]);
+const ADJ={}; ROWS.forEach((row,r)=>row.forEach((k,c)=>{const n=new Set();if(c>0)n.add(row[c-1]);if(c<row.length-1)n.add(row[c+1]);[r-1,r+1].forEach(dr=>{if(dr>=0&&dr<ROWS.length)[c-1,c,c+1].forEach(oc=>{if(oc>=0&&oc<ROWS[dr].length)n.add(ROWS[dr][oc])})});ADJ[k]=n;}));
+const adj=(a,b)=>a!==b&&!!(ADJ[a]&&ADJ[a].has(b));
+const SIGNALS=[{id:"concurrent",label:"Concurrent keys",w:0.7,hint:"3+ keys held at once"},{id:"concurrentHi",label:"Heavy press",w:0.7,hint:"5+ keys — sitting on it"},{id:"burst",label:"Burst rate",w:0.4,hint:"8+ keys / sec"},{id:"cluster",label:"Adjacency roll",w:0.4,hint:"neighboring keys in a row"},{id:"repeat",label:"Repetition",w:0.3,hint:"same key 6+ times"},{id:"nostruct",label:"No structure",w:0.2,hint:"no space / return / delete"}];
+function score(buf,kd){const f={};let s=0;if(kd>=3){f.concurrent=1;s+=0.7}if(kd>=5){f.concurrentHi=1;s+=0.7}const rate=buf.length/(WINDOW/1000);if(rate>=8){f.burst=1;s+=0.4}let run=0;for(let i=1;i<buf.length;i++)if(adj(buf[i-1].code,buf[i].code))run++;if(run>=3){f.cluster=1;s+=0.4}const c={};buf.forEach(b=>c[b.code]=(c[b.code]||0)+1);if(Object.values(c).some(v=>v>=6)){f.repeat=1;s+=0.3}if(buf.length>=6&&!buf.some(b=>STRUCT.has(b.code))){f.nostruct=1;s+=0.2}return{score:s,fired:f};}
+
+function makeDetector(getThreshold,getStayLocked){
+  let buffer=[], keysDown=new Set(), lastEvent=0, blocking=false;
+  const api={
+    get blocking(){return blocking;},
+    feedDown(code,repeat){const t=performance.now();lastEvent=t;if(!repeat)keysDown.add(code);buffer.push({code,time:t});buffer=buffer.filter(e=>t-e.time<=WINDOW);const v=score(buffer,keysDown.size);if(v.score>=getThreshold())blocking=true;return Object.assign(v,{blocking});},
+    feedUp(code){keysDown.delete(code);},
+    isCalm(){return score(buffer,keysDown.size).score<SAFE_WM;},
+    tick(){if(!blocking||getStayLocked())return false;if(keysDown.size===0&&performance.now()-lastEvent>=RELEASE){this.reset();return true;}return false;},
+    reset(){buffer=[];keysDown.clear();blocking=false;},
+    current(){return score(buffer,keysDown.size);}
+  };
+  return api;
+}
+
+// ---- Instrument ----
+const sigsEl=document.getElementById("sigs");
+SIGNALS.forEach(s=>{const d=document.createElement("div");d.className="sig";d.id="sig-"+s.id;d.innerHTML=`<div class="top"><span class="nm">${s.label}</span><span class="w">+${s.w.toFixed(1)}</span></div><div class="track"><div class="fill"></div></div><div class="hint">${s.hint}</div>`;sigsEl.appendChild(d);});
+const ta=document.getElementById("ta"), clampEl=document.getElementById("clamp"), clampSub=document.getElementById("clampsub");
+let lastSafeI="";
+const detI=makeDetector(()=>parseFloat(document.getElementById("thr").value),()=>document.getElementById("stayLocked").checked);
+
+function renderInstrument(v){
+  const thr=parseFloat(document.getElementById("thr").value);
+  document.getElementById("gaugeNum").textContent=v.score.toFixed(2);
+  const col=detI.blocking?"var(--red)":v.score>thr*0.6?"var(--amber)":"#caa15f";
+  document.getElementById("gaugeNum").style.color=col;
+  document.getElementById("verdict").textContent=detI.blocking?"CAT":"CLEAR";
+  document.getElementById("verdict").style.color=detI.blocking?"var(--red)":"var(--amber)";
+  SIGNALS.forEach(s=>document.getElementById("sig-"+s.id).classList.toggle("on",!!v.fired[s.id]));
+  ta.classList.toggle("locked",detI.blocking);
+  clampEl.classList.toggle("hidden",!detI.blocking);
+  clampSub.textContent=document.getElementById("stayLocked").checked?"Locked until you release.":"Auto-releases when typing settles.";
+}
+ta.addEventListener("keydown",e=>{
+  if(e.key==="Escape"&&detI.blocking){detI.reset();renderInstrument(detI.current());return;}
+  if(detI.blocking){e.preventDefault();return;}
+  const v=detI.feedDown(e.code,e.repeat);
+  if(v.blocking){e.preventDefault();ta.value=lastSafeI;}
+  renderInstrument(v);
+});
+ta.addEventListener("keyup",e=>detI.feedUp(e.code));
+ta.addEventListener("input",()=>{if(detI.blocking)return;document.getElementById("charcount").textContent=ta.value.length+" chars";if(detI.isCalm())lastSafeI=ta.value;});
+document.getElementById("thr").addEventListener("input",e=>{document.getElementById("thrV").textContent=parseFloat(e.target.value).toFixed(1);document.getElementById("thrLabel").textContent=parseFloat(e.target.value).toFixed(1);});
+function releaseInstrument(){detI.reset();renderInstrument(detI.current());}
+function clearInstrument(){ta.value="";lastSafeI="";detI.reset();document.getElementById("charcount").textContent="0 chars";renderInstrument(detI.current());}
+setInterval(()=>{if(detI.tick())renderInstrument(detI.current());},200);
+
+// ---- Composer ----
+const cta=document.getElementById("cta"), cbanner=document.getElementById("cbanner"), composerBox=document.getElementById("composerBox"), sendBtn=document.getElementById("sendBtn");
+let lastSafeC="";
+const detC=makeDetector(()=>1.0,()=>false);
+function renderComposer(){
+  composerBox.classList.toggle("locked",detC.blocking);
+  cbanner.classList.toggle("hidden",!detC.blocking);
+  sendBtn.style.opacity=detC.blocking||!cta.value.trim()?0.5:1;
+  sendBtn.disabled=detC.blocking||!cta.value.trim();
+}
+cta.addEventListener("keydown",e=>{
+  if(e.key==="Escape"&&detC.blocking){detC.reset();renderComposer();return;}
+  if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMsg();return;}
+  if(detC.blocking){e.preventDefault();return;}
+  const v=detC.feedDown(e.code,e.repeat);
+  if(v.blocking){e.preventDefault();const held=cta.value.length-lastSafeC.length;cta.value=lastSafeC;document.getElementById("heldN").textContent=held>0?held:0;}
+  renderComposer();
+});
+cta.addEventListener("keyup",e=>detC.feedUp(e.code));
+cta.addEventListener("input",()=>{if(detC.blocking)return;if(detC.isCalm())lastSafeC=cta.value;renderComposer();});
+function sendMsg(){if(detC.blocking||!cta.value.trim())return;const m=document.createElement("div");m.className="msg";m.innerHTML=`<div class="av" style="background:var(--amber)">Y</div><div><div class="who">You</div><div class="mtext"></div></div>`;m.querySelector(".mtext").textContent=cta.value;document.getElementById("msgs").appendChild(m);cta.value="";lastSafeC="";renderComposer();}
+function releaseComposer(){detC.reset();renderComposer();}
+setInterval(()=>{if(detC.tick())renderComposer();},200);
+
+// ---- Simulate (drives the real pipeline) ----
+function simulate(which){
+  const paw=["KeyA","KeyS","KeyD","KeyF","KeyG","KeyH","KeyJ","KeyK","KeyL","KeyF","KeyD","KeyS"];
+  if(which==="instrument"){lastSafeI=ta.value;let i=0;const step=()=>{if(i>=paw.length||detI.blocking)return;const v=detI.feedDown(paw[i],false);if(!v.blocking)ta.value+=paw[i].replace("Key","").toLowerCase();renderInstrument(v);i++;if(!detI.blocking)setTimeout(step,70);};step();}
+  else{lastSafeC=cta.value;let i=0;const step=()=>{if(i>=paw.length||detC.blocking){if(detC.blocking){const held=cta.value.length-lastSafeC.length;document.getElementById("heldN").textContent=held>0?held:i;}return;}const v=detC.feedDown(paw[i],false);if(!v.blocking)cta.value+=paw[i].replace("Key","").toLowerCase();renderComposer();i++;setTimeout(step,70);};step();}
+}
+
+renderInstrument(detI.current());
+renderComposer();
+</script>
+</body>
+</html>
